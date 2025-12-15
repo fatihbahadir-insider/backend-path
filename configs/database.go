@@ -25,10 +25,10 @@ func (c *Config) GormDatabase() {
 	var (
 		username string = os.Getenv("DB_USERNAME")
 		password string = os.Getenv("DB_PASSWORD")
-		url string = os.Getenv("DB_HOST")
-		port string = os.Getenv("DB_PORT")
-		dbName string = os.Getenv("DB_NAME")
-		debug bool = os.Getenv("APP_DEBUG") == "true"
+		url      string = os.Getenv("DB_HOST")
+		port     string = os.Getenv("DB_PORT")
+		dbName   string = os.Getenv("DB_NAME")
+		debug    bool   = os.Getenv("APP_DEBUG") == "true"
 	)
 
 	logMode := logger.Silent
