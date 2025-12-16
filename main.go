@@ -3,6 +3,7 @@ package main
 import (
 	"backend-path/app/middlewares"
 	"backend-path/app/repository"
+	"backend-path/app/server"
 	"backend-path/configs"
 	"backend-path/database/seeders"
 	"backend-path/routes"
@@ -32,12 +33,12 @@ func main() {
 
 	
 	middlewares.Setup(app)
-	
 	routes.Setup(app)
 	argsListener()
 
-	port := os.Getenv("APP_PORT")
-	if err := app.Listen(":" + port); err != nil {
+	
+	srv := server.New(app, configs.DB)
+	if err := srv.Start(os.Getenv("APP_PORT")); err != nil {
 		log.Fatal(err)
 	}
 }
