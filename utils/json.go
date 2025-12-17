@@ -69,6 +69,19 @@ func JsonErrorValidation(ctx *fiber.Ctx, err error) error {
 	})
 }
 
+func JsonErrorValidationFields(ctx *fiber.Ctx, fields map[string]string) error {
+	errorMessage := logErrorFormat(errors.New("validation failed"), "E_VALIDATION")
+	Logger.Info(errorMessage)
+	Logger.Error(errorMessage)
+	return ctx.Status(fiber.StatusBadRequest).JSON(DefaultResponse{
+		Success: false,
+		Status:  fiber.StatusBadRequest,
+		Code:    "E_VALIDATION",
+		Message: "validation failed",
+		Data:    fields,
+	})
+}
+
 func JsonErrorNotFound(ctx *fiber.Ctx, err error) error {
 	errorMessage := logErrorFormat(err, "E_NOT_FOUND")
 	Logger.Info(errorMessage)

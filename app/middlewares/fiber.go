@@ -19,8 +19,6 @@ func Setup(app *fiber.App) {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "*",   // TODO: will be changed later to whitelist of domains
 		AllowCredentials: false, 
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
 	}))
 
 	maxRequest, _ := strconv.Atoi(os.Getenv("APP_MAX_REQUEST"))

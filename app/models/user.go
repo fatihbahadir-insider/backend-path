@@ -14,8 +14,6 @@ type User struct {
 	RoleID       Role      `json:"role_id" gorm:"type:smallint;not null"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
-
-	Role         Role        `json:"role" gorm:"foreignKey:RoleID"`
 }
 
 func (User) TableName() string {
