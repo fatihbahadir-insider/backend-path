@@ -35,7 +35,8 @@ const (
 	ActionCreate AuditAction = iota + 1 
 	ActionUpdate                            
 	ActionDelete                            
-	ActionLogin                             
+	ActionLogin   
+	ActionRegister                          
 	ActionLogout                            
 )
 
@@ -49,6 +50,7 @@ func (a AuditAction) String() string {
 		ActionUpdate: "update",
 		ActionDelete: "delete",
 		ActionLogin:  "login",
+		ActionRegister: "register",
 		ActionLogout: "logout",
 	}
 	return names[a]

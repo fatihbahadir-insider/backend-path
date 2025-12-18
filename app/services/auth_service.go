@@ -7,12 +7,14 @@ import (
 	"backend-path/app/repository"
 	"backend-path/constants"
 	"backend-path/utils"
+	"encoding/json"
 	"errors"
 	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,6 +24,10 @@ func (s *AuthService) userRepo() *repository.UserRepository {
 	return new(repository.UserRepository)
 }
 
+func (s *AuthService) auditLogRepo() *repository.AuditRepository {
+	return new(repository.AuditRepository)
+}
+
 func (s *AuthService) Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error {
 	if errors := utils.ValidateStruct(req); errors != nil {
 		return utils.JsonErrorValidationFields(ctx, errors)
@@ -29,11 +35,21 @@ func (s *AuthService) Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error {
 
 	user, err := s.userRepo().FindByEmail(req.Email);
 	if err != nil {
+		s.logAuth(ctx, nil, models.ActionLogin, map[string]interface{}{
+			"email": req.Email,
+			"status": "failed",
+			"reason": "user not found",
+		})
 		err := errors.New("username or password is wrong")
 		return utils.JsonErrorUnauthorized(ctx, err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		s.logAuth(ctx, &user.ID, models.ActionLogin, map[string]interface{}{
+			"email":  req.Email,
+			"status": "failed",
+			"reason": "wrong password",
+		})
 		err := errors.New("username or password is wrong")
 		return utils.JsonErrorValidation(ctx, err)
 	}
@@ -46,7 +62,10 @@ func (s *AuthService) Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error {
 		return utils.JsonErrorInternal(ctx, err, "E_TOKEN_GENERATE")
 	}
 
-
+	s.logAuth(ctx, &user.ID, models.ActionLogin, map[string]interface{}{
+		"email":  user.Email,
+		"status": "success",
+	})
 	return utils.JsonSuccess(ctx, dto.AuthResponse{
 		Token: token,
 	})
@@ -59,6 +78,11 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 
 	userRepo := s.userRepo()
 	if userRepo.IsExist(req.Email) {
+		s.logAuth(ctx, nil, models.ActionRegister, map[string]interface{}{
+			"email": req.Email,
+			"status": "failed",
+			"reason": "email already exists",
+		})
 		return utils.JsonErrorValidation(ctx, constants.ErrEmailExist)
 	}
 
@@ -78,6 +102,10 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 		return utils.JsonErrorInternal(ctx, err, "E_USER_CREATE")
 	}
 
+	s.logAuth(ctx, &user.ID, models.ActionRegister, map[string]interface{}{
+		"email": user.Email,
+		"status": "success",
+	})
 	return utils.JsonSuccess(ctx, user)
 }
 
@@ -106,4 +134,23 @@ func (s *AuthService) generateToken(userGUID string, expiresAt int64) (string, e
 	}
 
 	return signedString, nil
+}
+
+func (s *AuthService) logAuth(ctx *fiber.Ctx, userID *uuid.UUID, action models.AuditAction, details map[string]interface{}) {
+	details["ip"] = ctx.IP()
+	details["user_agent"] = string(ctx.Request().Header.UserAgent())
+
+	detailsJSON, _ := json.Marshal(details)
+
+	log := &models.AuditLog{
+		EntityType: models.EntityUser,
+		Action: action,
+		Details: string(detailsJSON),
+	}
+
+	if userID != nil {
+		log.EntityID = *userID
+	}
+	
+	go s.auditLogRepo().Create(log)
 }
