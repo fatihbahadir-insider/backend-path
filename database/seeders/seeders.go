@@ -30,7 +30,5 @@ func NewSeederRunner(db *gorm.DB, seeders ...Seeder) *SeederRunner {
 }
 
 func All(db *gorm.DB) *SeederRunner {
-	return NewSeederRunner(db,
-		&TestSeeder{},
-	)
+	return NewSeederRunner(db)
 }

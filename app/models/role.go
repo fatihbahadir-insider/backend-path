@@ -20,3 +20,15 @@ func (r Role) String() string {
 	}
 	return names[r]
 }
+
+func ToRole(s string) Role {
+	switch s {
+	case "user":
+		return RoleUser
+	case "admin":
+		return RoleAdmin
+	case "mod":
+		return RoleMod
+	}
+	return RoleUser
+}

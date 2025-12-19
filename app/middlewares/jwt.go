@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"backend-path/app/models"
 	"backend-path/utils"
 	"errors"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 type JwtCustomClaims struct {
 	Issuer string `json:"issuer"`
+	Role models.Role `json:"role"`
 	jwt.StandardClaims
 }
 
@@ -44,14 +46,34 @@ func JwtMiddleware(ctx *fiber.Ctx) error {
 		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
 
+	if jwtToken == nil {
+		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid token"))
+	}
+
+	claims, ok := jwtToken.Claims.(*JwtCustomClaims)
+	if !ok {
+		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid token claims"))
+	}
+
+	ctx.Locals("user_auth", claims.Issuer)
+	ctx.Locals("user_role", claims.Role)
+
 	if err != nil {
+		if ve, ok := err.(*jwt.ValidationError); ok {
+			if ve.Errors&jwt.ValidationErrorExpired != 0 {
+				ctx.Locals("token_expired", true)
+				if ctx.Path() == "/api/v1/auth/refresh" {
+					utils.Logger.Info("⏰ Expired token - refresh allowed")
+					return ctx.Next()
+				}
+				return utils.JsonErrorUnauthorized(ctx, errors.New("token expired"))
+			}
+		}
 		return utils.JsonErrorUnauthorized(ctx, err)
 	}
 
-	claimsData := jwtToken.Claims.(*JwtCustomClaims)
-	utils.Logger.Info("✅ SET USER AUTH")
-	ctx.Locals("user_auth", claimsData.Issuer)
 
+	utils.Logger.Info("✅ SET USER AUTH")
 	return ctx.Next()
 }
 

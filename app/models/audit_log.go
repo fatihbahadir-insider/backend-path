@@ -37,7 +37,8 @@ const (
 	ActionDelete                            
 	ActionLogin   
 	ActionRegister                          
-	ActionLogout                            
+	ActionLogout             
+	ActionRefreshToken                            
 )
 
 func (a AuditAction) IsValid() bool {
@@ -52,6 +53,7 @@ func (a AuditAction) String() string {
 		ActionLogin:  "login",
 		ActionRegister: "register",
 		ActionLogout: "logout",
+		ActionRefreshToken: "refresh_token",
 	}
 	return names[a]
 }

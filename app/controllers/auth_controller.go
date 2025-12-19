@@ -8,10 +8,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type AuthController struct{}
+type AuthController struct{
+	authService services.IAuthService
+}
 
-func (c *AuthController) authService() *services.AuthService {
-	return new(services.AuthService)
+func NewAuthController() *AuthController {
+	return &AuthController{
+		authService: services.NewAuthService(),
+	}
 }
 
 func (c *AuthController) Login(ctx *fiber.Ctx) error {
@@ -22,7 +26,7 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 		return utils.JsonErrorValidation(ctx, err)
 	}
 
-	return c.authService().Authenticate(ctx, *req)
+	return c.authService.Authenticate(ctx, *req)
 }
 
 
@@ -34,5 +38,11 @@ func (c *AuthController) Register(ctx *fiber.Ctx) error {
 		return utils.JsonErrorValidation(ctx, err)
 	}
 
-	return c.authService().Register(ctx, *req)
+	return c.authService.Register(ctx, *req)
+}
+
+func (c *AuthController) RefreshToken(ctx *fiber.Ctx) error {
+	utils.Logger.Info("AUTH REFRESH TOKEN")
+	
+	return c.authService.RefreshToken(ctx)
 }

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,14 +19,22 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct {}
-
-func (s *AuthService) userRepo() *repository.UserRepository {
-	return new(repository.UserRepository)
+type IAuthService interface {
+	Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error
+	Register(ctx *fiber.Ctx, req dto.RegisterRequest) error
+	RefreshToken(ctx *fiber.Ctx) error
 }
 
-func (s *AuthService) auditLogRepo() *repository.AuditRepository {
-	return new(repository.AuditRepository)
+type AuthService struct {
+	userRepo repository.IUserRepository
+	auditRepo repository.IAuditLogRepository
+}
+
+func NewAuthService() *AuthService {
+	return &AuthService{
+		userRepo:  repository.NewUserRepository(),
+		auditRepo: repository.NewAuditRepository(),
+	}
 }
 
 func (s *AuthService) Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error {
@@ -33,7 +42,7 @@ func (s *AuthService) Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error {
 		return utils.JsonErrorValidationFields(ctx, errors)
 	}
 
-	user, err := s.userRepo().FindByEmail(req.Email);
+	user, err := s.userRepo.FindByEmail(req.Email);
 	if err != nil {
 		s.logAuth(ctx, nil, models.ActionLogin, map[string]interface{}{
 			"email": req.Email,
@@ -54,10 +63,8 @@ func (s *AuthService) Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error {
 		return utils.JsonErrorValidation(ctx, err)
 	}
 
-	expireHour, _ := time.ParseDuration(os.Getenv("JWT_EXPIRES") + "h")
-	expiresAt := time.Now().Add(time.Hour * expireHour).Unix()
-	token, err := s.generateToken(user.ID.String(), expiresAt)
 
+	token, err := s.generateToken(user.ID.String(), user.RoleID)
 	if err != nil {
 		return utils.JsonErrorInternal(ctx, err, "E_TOKEN_GENERATE")
 	}
@@ -76,8 +83,7 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 		return utils.JsonErrorValidationFields(ctx, errors)
 	}
 
-	userRepo := s.userRepo()
-	if userRepo.IsExist(req.Email) {
+	if s.userRepo.IsExist(req.Email) {
 		s.logAuth(ctx, nil, models.ActionRegister, map[string]interface{}{
 			"email": req.Email,
 			"status": "failed",
@@ -98,7 +104,7 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 		RoleID: models.RoleUser,
 	}
 
-	if err := userRepo.Insert(user); err != nil {
+	if err := s.userRepo.Insert(user); err != nil {
 		return utils.JsonErrorInternal(ctx, err, "E_USER_CREATE")
 	}
 
@@ -107,6 +113,34 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 		"status": "success",
 	})
 	return utils.JsonSuccess(ctx, user)
+}
+
+func (s *AuthService) RefreshToken(ctx *fiber.Ctx) error {
+	userIDStr := ctx.Locals("user_auth").(string)
+	
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid user id"))
+	}
+	
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return utils.JsonErrorUnauthorized(ctx, errors.New("user not found"))
+	}
+
+	token, err := s.generateToken(user.ID.String(), user.RoleID)
+	if err != nil {
+		return utils.JsonErrorInternal(ctx, err, "E_TOKEN_GENERATE")
+	}
+
+	s.logAuth(ctx, &user.ID, models.ActionRefreshToken, map[string]interface{}{
+		"email": user.Email,
+		"status": "success",
+	})
+
+	return utils.JsonSuccess(ctx, dto.AuthResponse{
+		Token: token,
+	})
 }
 
 func (s *AuthService) hashPassword(password string) (string, error) {
@@ -118,9 +152,16 @@ func (s *AuthService) hashPassword(password string) (string, error) {
 	return string(hashedPassword), nil
 }
 
-func (s *AuthService) generateToken(userGUID string, expiresAt int64) (string, error) {
+func (s *AuthService) generateToken(userUUID string, role models.Role) (string, error) {
+	expireHours, _ := strconv.Atoi(os.Getenv("JWT_EXPIRES"))
+	if expireHours == 0 {
+		expireHours = 24
+	}
+	expiresAt := time.Now().Add(time.Duration(expireHours) * time.Hour).Unix()
+
 	claims := middlewares.JwtCustomClaims{
-		Issuer: userGUID,
+		Issuer: userUUID,
+		Role: role,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expiresAt,
 		},
@@ -152,5 +193,5 @@ func (s *AuthService) logAuth(ctx *fiber.Ctx, userID *uuid.UUID, action models.A
 		log.EntityID = *userID
 	}
 	
-	go s.auditLogRepo().Create(log)
+	go s.auditRepo.Create(log)
 }
