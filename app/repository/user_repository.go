@@ -10,7 +10,7 @@ type IUserRepository interface {
 	Insert(user *models.User) error
 	FindByEmail(email string) (*models.User, error)
 	FindByID(id uuid.UUID) (*models.User, error)
-	FindAll() ([]models.User, uint64, error)
+	FindAll(limit, offset int) ([]models.User, int64, error)
 	Update(user *models.User) error
 	Delete(id uuid.UUID) error
 	IsExist(email string) bool
@@ -22,16 +22,18 @@ func NewUserRepository() *UserRepository {
 	return &UserRepository{}
 }
 
-func (r *UserRepository) FindAll() ([]models.User, uint64, error) {
+func (r *UserRepository) FindAll(limit, offset int) ([]models.User, int64, error) {
 	var users []models.User
 	var total int64
 
 	DB.Model(&models.User{}).Count(&total)
-	if err := DB.Find(&users).Error; err != nil {
+
+	err := DB.Limit(limit).Offset(offset).Order("created_at DESC").Find(&users).Error
+	if err != nil {
 		return nil, 0, err
 	}
 
-	return users, uint64(total), nil
+	return users, total, nil
 }
 
 func (r *UserRepository) Insert(user *models.User) error {

@@ -15,7 +15,7 @@ func BalanceTransformer(balance *models.Balance) dto.BalanceResponse {
 	}
 }
 
-func BalanceHistoryTransformer(logs []models.AuditLog) dto.BalanceHistoryResponse {
+func BalanceHistoryTransformer(logs []models.AuditLog) []dto.BalanceHistoryItem {
 	history := make([]dto.BalanceHistoryItem, 0, len(logs))
 
 	for _, log := range logs {
@@ -46,7 +46,5 @@ func BalanceHistoryTransformer(logs []models.AuditLog) dto.BalanceHistoryRespons
 		history = append(history, item)
 	}
 
-	return dto.BalanceHistoryResponse{
-		History: history,
-	}
+	return history
 }

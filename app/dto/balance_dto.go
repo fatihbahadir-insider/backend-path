@@ -17,18 +17,13 @@ type BalanceHistoryItem struct {
 	TransactionID  *string  `json:"transaction_id,omitempty"`
 	CreatedAt      string   `json:"created_at"`
 }
-
-type BalanceHistoryResponse struct {
-	History []BalanceHistoryItem `json:"history"`
-}
-
 type BalanceAtTimeRequest struct {
-	Timestamp string `json:"timestamp" validate:"required"`
+	Timestamp int64 `json:"timestamp" validate:"required,gt=0"`
 }
 
 type BalanceAtTimeResponse struct {
 	UserID    uuid.UUID `json:"user_id"`
 	Amount    float64   `json:"amount"`
-	AsOf      string    `json:"as_of"`
+	AsOf      string    `json:"as_of"`    
 	IsExact   bool      `json:"is_exact"`
 }

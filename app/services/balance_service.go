@@ -39,12 +39,25 @@ func (s *BalanceService) GetCurrent(ctx *fiber.Ctx, userID uuid.UUID) error {
 }
 
 func (s *BalanceService) GetHistorical(ctx *fiber.Ctx, userID uuid.UUID) error {
-	logs, err := s.balanceRepo.GetBalanceHistory(userID)
+	pagination := utils.GetPagination(ctx)
+
+	logs, total, err := s.balanceRepo.GetBalanceHistory(
+		userID,
+		pagination.Limit,
+		pagination.GetOffset(),
+	)
 	if err != nil {
 		return utils.JsonErrorNotFound(ctx, err)
 	}
 
-	return utils.JsonSuccess(ctx, transformer.BalanceHistoryTransformer(logs))
+	response := dto.NewPaginatedResponse(
+		transformer.BalanceHistoryTransformer(logs),
+		pagination.Page,
+		pagination.Limit,
+		total,
+	)
+
+	return utils.JsonSuccess(ctx, response)
 }
 
 func (s *BalanceService) GetAtTime(ctx *fiber.Ctx, req dto.BalanceAtTimeRequest, userID uuid.UUID) error {
@@ -52,10 +65,8 @@ func (s *BalanceService) GetAtTime(ctx *fiber.Ctx, req dto.BalanceAtTimeRequest,
 		return utils.JsonErrorValidationFields(ctx, errors)
 	}
 	
-	timestamp, err := time.Parse(constants.TimestampFormat, req.Timestamp)
-	if err != nil {
-		return utils.JsonError(ctx, err, "E_INVALID_TIMESTAMP")
-	}
+	timestamp := time.Unix(req.Timestamp, 0)
+
 
 	log, err := s.balanceRepo.GetBalanceAtTime(userID, timestamp)
 	if err != nil {
@@ -73,7 +84,7 @@ func (s *BalanceService) GetAtTime(ctx *fiber.Ctx, req dto.BalanceAtTimeRequest,
 	return utils.JsonSuccess(ctx, dto.BalanceAtTimeResponse{
 		UserID: userID,
 		Amount: amount,
-		AsOf: log.CreatedAt.Format(constants.TimestampFormat),
+		AsOf:    log.CreatedAt.Format(constants.TimestampFormat),
 		IsExact: log.CreatedAt.Equal(timestamp),
 	})
 }

@@ -58,6 +58,10 @@ func (a AuditAction) String() string {
 		ActionRegister: "register",
 		ActionLogout: "logout",
 		ActionRefreshToken: "refresh_token",
+		ActionDeposit:      "deposit",     
+		ActionWithdraw:     "withdraw",    
+		ActionTransferIn:   "transfer_in", 
+		ActionTransferOut:  "transfer_out",
 	}
 	return names[a]
 }

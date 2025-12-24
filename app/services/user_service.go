@@ -31,15 +31,21 @@ func NewUserService() *UserService {
 
 
 func (s *UserService) GetAll(ctx *fiber.Ctx) error {
-	users, total, err := s.userRepo.FindAll()
+	pagination := utils.GetPagination(ctx)
+
+	users, total, err := s.userRepo.FindAll(pagination.Limit, pagination.GetOffset())
 	if err != nil {
 		return utils.JsonErrorInternal(ctx, err, "E_USER_LIST")
 	}
 
-	return utils.JsonSuccess(ctx, dto.UserListResponse{
-		Users: transformer.UserListTransformer(users),
-		Total: total,
-	})
+	response := dto.NewPaginatedResponse(
+		transformer.UserListTransformer(users),
+		pagination.Page,
+		pagination.Limit,
+		total,
+	)
+
+	return utils.JsonSuccess(ctx, response)
 }
 
 func (s *UserService) GetByID(ctx *fiber.Ctx, id uuid.UUID) error {

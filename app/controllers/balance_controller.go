@@ -50,12 +50,12 @@ func (c *BalanceController) GetAtTime(ctx *fiber.Ctx) error {
 		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid user id"))
 	}
 
-	timestamp := ctx.Query("timestamp")
-	if timestamp == "" {
-		return utils.JsonError(ctx, nil, "E_TIMESTAMP_REQUIRED")
+	timestamp := ctx.QueryInt("timestamp", 0)
+	if timestamp == 0 {
+		return utils.JsonError(ctx, errors.New("timestamp is required"), "E_TIMESTAMP_REQUIRED")
 	}
 
-	req := dto.BalanceAtTimeRequest{Timestamp: timestamp}
+	req := dto.BalanceAtTimeRequest{Timestamp: int64(timestamp)}
 
 	return c.balanceService.GetAtTime(ctx, req, userID)
 }

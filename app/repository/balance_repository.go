@@ -15,7 +15,7 @@ type IBalanceRepository interface {
 	Create(balance *models.Balance) error
 	Update(tx *gorm.DB, balance *models.Balance) error
 	Upsert(tx *gorm.DB, balance *models.Balance) error
-	GetBalanceHistory(userID uuid.UUID) ([]models.AuditLog, error)
+	GetBalanceHistory(userID uuid.UUID, limit, offset int) ([]models.AuditLog, int64, error)
 	GetBalanceAtTime(userID uuid.UUID, timestamp time.Time) (*models.AuditLog, error)
 }
 
@@ -56,16 +56,25 @@ func (r *BalanceRepository) Upsert(tx *gorm.DB, balance *models.Balance) error {
 	}).Create(balance).Error
 }
 
-func (r *BalanceRepository) GetBalanceHistory(userID uuid.UUID) ([]models.AuditLog, error) {
+func (r *BalanceRepository) GetBalanceHistory(userID uuid.UUID, limit, offset int) ([]models.AuditLog, int64, error) {
 	var logs []models.AuditLog
+	var total int64
 
-	err := DB.Model(&models.AuditLog{}).Where("entity_type = ? AND entity_id = ?", models.EntityBalance, userID).Find(&logs).Error
+	query := DB.Model(&models.AuditLog{}).
+		Where("entity_type = ? AND entity_id = ?", models.EntityBalance, userID)
+
+	query.Count(&total)
+
+	err := query.Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&logs).Error
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return logs, nil
+	return logs, total, nil
 }
 
 func (r *BalanceRepository) GetBalanceAtTime(userID uuid.UUID, timestamp time.Time) (*models.AuditLog, error) {
