@@ -22,7 +22,7 @@ import (
 type IAuthService interface {
 	Authenticate(ctx *fiber.Ctx, req dto.LoginRequest) error
 	Register(ctx *fiber.Ctx, req dto.RegisterRequest) error
-	RefreshToken(ctx *fiber.Ctx) error
+	RefreshToken(ctx *fiber.Ctx, userID uuid.UUID) error
 }
 
 type AuthService struct {
@@ -115,14 +115,7 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 	return utils.JsonSuccess(ctx, user)
 }
 
-func (s *AuthService) RefreshToken(ctx *fiber.Ctx) error {
-	userIDStr := ctx.Locals("user_auth").(string)
-	
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid user id"))
-	}
-	
+func (s *AuthService) RefreshToken(ctx *fiber.Ctx, userID uuid.UUID) error {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return utils.JsonErrorUnauthorized(ctx, errors.New("user not found"))

@@ -23,4 +23,11 @@ func Setup(app *fiber.App) {
 	users.Get("/:id", middlewares.Role(models.RoleAdmin, models.RoleMod), userController.GetByID)
 	users.Put("/:id", middlewares.Role(models.RoleAdmin), userController.Update)
 	users.Delete("/:id", middlewares.Role(models.RoleAdmin), userController.Delete)
+
+	balances := apiRoute.Group("/balances")
+	balanceController := controllers.NewBalanceController()
+
+	balances.Get("/current", balanceController.GetCurrent)
+	balances.Get("/historical", balanceController.GetHistorical)
+	balances.Get("/at-time", balanceController.GetAtTime)
 }

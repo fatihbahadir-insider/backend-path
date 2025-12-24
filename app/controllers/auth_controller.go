@@ -4,8 +4,10 @@ import (
 	"backend-path/app/dto"
 	"backend-path/app/services"
 	"backend-path/utils"
+	"errors"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type AuthController struct{
@@ -42,7 +44,14 @@ func (c *AuthController) Register(ctx *fiber.Ctx) error {
 }
 
 func (c *AuthController) RefreshToken(ctx *fiber.Ctx) error {
+	userIDStr := ctx.Locals("user_auth").(string)
+	
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid user id"))
+	}
+
 	utils.Logger.Info("AUTH REFRESH TOKEN")
 	
-	return c.authService.RefreshToken(ctx)
+	return c.authService.RefreshToken(ctx, userID)
 }

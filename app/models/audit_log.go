@@ -38,7 +38,11 @@ const (
 	ActionLogin   
 	ActionRegister                          
 	ActionLogout             
-	ActionRefreshToken                            
+	ActionRefreshToken      
+	ActionDeposit
+	ActionWithdraw
+	ActionTransferIn
+	ActionTransferOut                      
 )
 
 func (a AuditAction) IsValid() bool {

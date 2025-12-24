@@ -8,7 +8,7 @@ CREATE TABLE audit_logs (
     created_at timestamp with time zone DEFAULT now(),
     
     CONSTRAINT audit_logs_entity_type_check CHECK (entity_type BETWEEN 1 AND 4),
-    CONSTRAINT audit_logs_action_check CHECK (action BETWEEN 1 AND 5)
+    CONSTRAINT audit_logs_action_check CHECK (action BETWEEN 1 AND 11)
 );
 
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
