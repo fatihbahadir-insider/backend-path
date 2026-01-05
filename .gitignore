@@ -1,3 +1,4 @@
 .env
 go.sum
 dbconfig.yml
+test_script.sh

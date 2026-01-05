@@ -30,4 +30,13 @@ func Setup(app *fiber.App) {
 	balances.Get("/current", balanceController.GetCurrent)
 	balances.Get("/historical", balanceController.GetHistorical)
 	balances.Get("/at-time", balanceController.GetAtTime)
+
+	transactions := apiRoute.Group("/transactions")
+	transactionController := controllers.NewTransactionController()
+	transactions.Post("/credit", transactionController.Credit)
+	transactions.Post("/debit", transactionController.Debit)
+	transactions.Post("/transfer", transactionController.Transfer)
+	transactions.Get("/history", transactionController.GetHistory)
+	transactions.Get("/stats", middlewares.Role(models.RoleAdmin), transactionController.GetStats)
+	transactions.Get("/:id", transactionController.GetByID)
 }
