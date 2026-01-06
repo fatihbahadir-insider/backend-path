@@ -6,12 +6,16 @@ import (
 	"backend-path/app/repository"
 	"backend-path/app/transformer"
 	"backend-path/app/workers"
+	"backend-path/configs"
+	"backend-path/constants"
 	"backend-path/utils"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/storage/redis"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -31,6 +35,7 @@ type TransactionService struct {
 	balanceRepo     repository.IBalanceRepository
 	auditRepo       repository.IAuditLogRepository
 	workerPool      *workers.TransactionWorkerPool
+	redisStorage    *redis.Storage
 }
 
 var transactionServiceInstance *TransactionService
@@ -41,6 +46,7 @@ func NewTransactionService() *TransactionService {
 			transactionRepo: repository.NewTransactionRepository(),
 			balanceRepo: repository.NewBalanceRepository(),
 			auditRepo: repository.NewAuditRepository(),
+			redisStorage: configs.RedisStorage,
 		}
 
 		svc.workerPool = workers.NewTransactionWorkerPool(5, 100, svc.processTransaction)
@@ -94,6 +100,11 @@ func (s *TransactionService) processTransaction(job workers.TransactionJob) work
 		resultTx = transaction
 		return nil
 	})
+
+	if resultTx != nil && err == nil {
+		s.invalidateCachesAfterTransaction(resultTx)
+	}
+
 
 	return workers.TransactionResult{
 		Transaction: resultTx,
@@ -301,6 +312,16 @@ func (s *TransactionService) Transfer(ctx *fiber.Ctx, req dto.TransferRequest, f
 }
 
 func (s *TransactionService) GetByID(ctx *fiber.Ctx, id uuid.UUID, userID uuid.UUID) error {
+	cacheKey := s.keyTransactionDetailCache(id)
+	cacheData := s.getTransactionDetailCache(cacheKey)
+
+	if cacheData != nil {
+		if cacheData.FromUserID != nil && uuid.MustParse(*cacheData.FromUserID) != userID {
+			return utils.JsonErrorUnauthorized(ctx, errors.New("unauthorized access"))
+		}
+		return utils.JsonSuccess(ctx, cacheData)
+	}
+
 	transaction, err := s.transactionRepo.FindByID(id)
 	if err != nil {
 		return utils.JsonErrorInternal(ctx, err, "E_TRANSACTION_NOT_FOUND")
@@ -310,11 +331,21 @@ func (s *TransactionService) GetByID(ctx *fiber.Ctx, id uuid.UUID, userID uuid.U
 		return utils.JsonErrorUnauthorized(ctx, errors.New("unauthorized access"))
 	}
 
-	return utils.JsonSuccess(ctx, transformer.TransactionTransformer(transaction))
+	response := transformer.TransactionTransformer(transaction)
+	s.setCache(cacheKey, response)
+
+	return utils.JsonSuccess(ctx, response)
 }
 
 func (s *TransactionService) GetHistory(ctx *fiber.Ctx, userID uuid.UUID) error {
 	pagination := utils.GetPagination(ctx)
+	cacheKey := s.keyTransactionHistoryCache(userID, pagination.Page, pagination.Limit)
+	cacheData := s.getTransactionHistoryCache(cacheKey)
+
+	if cacheData != nil {
+		return utils.JsonSuccess(ctx, cacheData)
+	}
+
 	transactions, total, err := s.transactionRepo.FindByUserID(userID, pagination.Limit, pagination.GetOffset())
 	if err != nil {
 		return utils.JsonErrorInternal(ctx, err, "E_TRANSACTION_HISTORY")
@@ -324,12 +355,21 @@ func (s *TransactionService) GetHistory(ctx *fiber.Ctx, userID uuid.UUID) error 
 		transformer.TransactionListTransformer(transactions),
 		pagination.Page, pagination.Limit, total,
 	)
+
+	s.setCache(cacheKey, response)
 	return utils.JsonSuccess(ctx, response)
 }
 
 func (s *TransactionService) GetStats(ctx *fiber.Ctx) error {
+	cacheKey := constants.CacheTransactionStats
+	cacheData := s.getTransactionStatsCache(cacheKey)
+
+	if cacheData != nil {
+		return utils.JsonSuccess(ctx, cacheData)
+	}
+
 	stats := s.workerPool.GetStats()
-	return utils.JsonSuccess(ctx, dto.TransactionStatsResponse{
+	response := dto.TransactionStatsResponse{
 		TotalProcessed:   stats.TotalProcessed,
 		TotalSuccessful:  stats.TotalSuccessful,
 		TotalFailed:      stats.TotalFailed,
@@ -337,5 +377,185 @@ func (s *TransactionService) GetStats(ctx *fiber.Ctx) error {
 		TotalCredited:    float64(stats.TotalCredited) / 100,
 		TotalDebited:     float64(stats.TotalDebited) / 100,
 		TotalTransferred: float64(stats.TotalTransferred) / 100,
-	})
+	}
+
+	s.setCache(cacheKey, response)
+	return utils.JsonSuccess(ctx, response)
+}
+
+func (s *TransactionService) keyTransactionDetailCache(id uuid.UUID) string {
+	return constants.CacheTransactionDetail + "_" + id.String()
+}
+
+func (s *TransactionService) keyTransactionHistoryCache(userID uuid.UUID, page, limit int) string {
+	return constants.CacheTransactionHistory + "_" + userID.String() + "_" +
+		strconv.Itoa(page) + "_" + strconv.Itoa(limit)
+}
+
+func (s *TransactionService) getTransactionDetailCache(key string) *dto.TransactionResponse {
+	if s.redisStorage == nil {
+		return nil
+	}
+
+	data, err := s.redisStorage.Get(key)
+	if err != nil || len(data) == 0 {
+		utils.Logger.Info("❌ NO CACHE TRANSACTION DETAIL FOUND FOR KEY " + key)
+		return nil
+	}
+
+	var response dto.TransactionResponse
+	if err := json.Unmarshal(data, &response); err != nil {
+		utils.Logger.Error("Error unmarshaling transaction detail cache: " + err.Error())
+		return nil
+	}
+
+	utils.Logger.Info("GET CACHE TRANSACTION DETAIL FROM KEY " + key)
+	return &response
+}
+
+func (s *TransactionService) getTransactionHistoryCache(key string) *dto.PaginatedResponse[dto.TransactionResponse] {
+	if s.redisStorage == nil {
+		return nil
+	}
+
+	data, err := s.redisStorage.Get(key)
+	if err != nil || len(data) == 0 {
+		utils.Logger.Info("❌ NO CACHE TRANSACTION HISTORY FOUND FOR KEY " + key)
+		return nil
+	}
+
+	var response dto.PaginatedResponse[dto.TransactionResponse]
+	if err := json.Unmarshal(data, &response); err != nil {
+		utils.Logger.Error("Error unmarshaling transaction history cache: " + err.Error())
+		return nil
+	}
+
+	utils.Logger.Info("GET CACHE TRANSACTION HISTORY FROM KEY " + key)
+	return &response
+}
+
+func (s *TransactionService) getTransactionStatsCache(key string) *dto.TransactionStatsResponse {
+	if s.redisStorage == nil {
+		return nil
+	}
+
+	data, err := s.redisStorage.Get(key)
+	if err != nil || len(data) == 0 {
+		utils.Logger.Info("❌ NO CACHE TRANSACTION STATS FOUND FOR KEY " + key)
+		return nil
+	}
+
+	var response dto.TransactionStatsResponse
+	if err := json.Unmarshal(data, &response); err != nil {
+		utils.Logger.Error("Error unmarshaling transaction stats cache: " + err.Error())
+		return nil
+	}
+
+	utils.Logger.Info("GET CACHE TRANSACTION STATS FROM KEY " + key)
+	return &response
+}
+
+
+func (s *TransactionService) setCache(key string, data interface{}) {
+	if s.redisStorage == nil {
+		utils.Logger.Error("❌ REDIS STORAGE IS NULL")
+		return
+	}
+
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		utils.Logger.Error("Error marshaling user list cache: " + err.Error())
+		return
+	}
+
+	if err := s.redisStorage.Set(key, dataJSON, 12 * time.Hour); err != nil {
+		utils.Logger.Error("❌ REDIS KEY " + key + " ERROR: " + err.Error())
+	}
+
+	utils.Logger.Info("SET CACHE TRANSACTION LIST TO KEY " + key)
+}
+
+func (s *TransactionService) invalidateCachesAfterTransaction(transaction *models.Transaction) {
+	s.invalidateTransactionCache(transaction.ID, transaction.FromUserID)
+
+	if transaction.Type == models.TxTypeTransfer && transaction.ToUserID != nil {
+		s.invalidateTransactionCache(transaction.ID, transaction.ToUserID)
+	}
+
+	switch transaction.Type {
+	case models.TxTypeDeposit:
+		if transaction.ToUserID != nil {
+			InvalidateBalanceCacheForUser(*transaction.ToUserID)
+		}
+	
+	case models.TxTypeWithdraw:
+		if transaction.FromUserID != nil {
+			InvalidateBalanceCacheForUser(*transaction.FromUserID)
+		}
+	
+	case models.TxTypeTransfer:
+		if transaction.FromUserID != nil {
+			InvalidateBalanceCacheForUser(*transaction.FromUserID)
+		}
+		if transaction.ToUserID != nil && transaction.FromUserID != nil &&
+			*transaction.ToUserID != *transaction.FromUserID {
+			InvalidateBalanceCacheForUser(*transaction.ToUserID)
+		}
+	}
+}
+
+func InvalidateBalanceCacheForUser(userID uuid.UUID) {
+	if configs.RedisStorage == nil {
+		return
+	}
+
+	currentKey := constants.CacheBalanceCurrent + "_" + userID.String()
+	configs.RedisStorage.Delete(currentKey)
+
+	commonPages := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	commonLimits := []int{10, 20, 25, 50, 100}
+
+	deletedCount := 0
+	for _, page := range commonPages {
+		for _, limit := range commonLimits {
+			key := constants.CacheBalanceHistory + "_" + userID.String() + "_" +
+				strconv.Itoa(page) + "_" + strconv.Itoa(limit)
+			if err := configs.RedisStorage.Delete(key); err == nil {
+				deletedCount++
+			}
+		}
+	}
+
+	utils.Logger.Info("INVALIDATE BALANCE CACHE FOR USER " + userID.String() + 
+	" - Deleted " + strconv.Itoa(deletedCount+1) + " cache keys")
+}
+
+func (s *TransactionService) invalidateTransactionCache(transactionID uuid.UUID, userID *uuid.UUID) {
+	if s.redisStorage == nil {
+		return
+	}
+
+	detailKey := s.keyTransactionDetailCache(transactionID)
+	s.redisStorage.Delete(detailKey)
+
+	s.redisStorage.Delete(constants.CacheTransactionStats)
+
+	if userID != nil {
+		commonPages := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		commonLimits := []int{10, 20, 25, 50, 100}
+
+		deletedCount := 0
+		for _, page := range commonPages {
+			for _, limit := range commonLimits {
+				key := s.keyTransactionHistoryCache(*userID, page, limit)
+				if err := s.redisStorage.Delete(key); err == nil {
+					deletedCount++
+				}
+			}
+		}
+
+		utils.Logger.Info("INVALIDATE TRANSACTION CACHE FOR USER " + userID.String() + " - Deleted " + strconv.Itoa(deletedCount) + " history cache keys")
+	}
+
+	utils.Logger.Info("INVALIDATE TRANSACTION CACHE FOR TX " + transactionID.String())
 }
