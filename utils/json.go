@@ -43,6 +43,17 @@ func JsonError(ctx *fiber.Ctx, err error, code string) error {
 	})
 }
 
+func JsonErrorRateLimit(ctx *fiber.Ctx, err error) error {
+	errorMessage := logErrorFormat(err, "E_RATE_LIMIT")
+	Logger.Info(errorMessage)
+	Logger.Error(errorMessage)
+	return ctx.Status(fiber.StatusTooManyRequests).JSON(DefaultResponse{
+		Success: false,
+		Status:  fiber.StatusTooManyRequests,
+		Message: err.Error(),
+	})
+}
+
 func JsonErrorInternal(ctx *fiber.Ctx, err error, code string) error {
 	errorMessage := logErrorFormat(err, code)
 	Logger.Info(errorMessage)

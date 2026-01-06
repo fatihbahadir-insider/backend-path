@@ -11,7 +11,7 @@ import (
 func Setup(app *fiber.App) {
 	apiRoute := app.Group("/api/v1", middlewares.JwtMiddleware)
 
-	auth := apiRoute.Group("/auth")
+	auth := app.Group("/api/v1/auth", middlewares.SetupAuthRateLimiter())
 	authController := controllers.NewAuthController()
 	auth.Post("/register", authController.Register)
 	auth.Post("/login", authController.Login)

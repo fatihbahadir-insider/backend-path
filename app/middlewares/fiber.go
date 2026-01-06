@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
@@ -16,10 +15,11 @@ import (
 func Setup(app *fiber.App) {
 	app.Use(recover.New())
 
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "*",   // TODO: will be changed later to whitelist of domains
-		AllowCredentials: false, 
-	}))
+	app.Use(SetupHelmet())
+
+	app.Use(SetupCors())
+
+	app.Use(SetupRateLimiter())
 
 	maxRequest, _ := strconv.Atoi(os.Getenv("APP_MAX_REQUEST"))
 	app.Use(Limit(maxRequest, 5))

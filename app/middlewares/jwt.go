@@ -23,10 +23,6 @@ type SkipperRoutesData struct {
 }
 
 func JwtMiddleware(ctx *fiber.Ctx) error {
-	ctx.Set("X-XSS-Protection", "1; mode=block")
-	ctx.Set("Strict-Transport-Security", "max-age=5184000")
-	ctx.Set("X-DNS-Prefetch-Control", "off")
-
 	// skip whitelist routes
 	for _, whiteList := range whiteListRoutes() {
 		if ctx.Method() == whiteList.Method && ctx.Path() == whiteList.UrlPath {
