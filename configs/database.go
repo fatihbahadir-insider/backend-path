@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"backend-path/app/metrics"
 	"backend-path/utils"
 	"errors"
 	"fmt"
@@ -44,6 +45,8 @@ func (c *Config) GormDatabase() {
 	dbInstance, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logMode),
 	})
+
+	metrics.RegisterGormCallbacks(dbInstance)
 
 	if err != nil {
 		utils.Logger.Error("GORM Error : " + err.Error())

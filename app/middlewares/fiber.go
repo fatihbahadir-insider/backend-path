@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"backend-path/app/metrics"
 	"os"
 	"strconv"
 
@@ -11,10 +12,14 @@ import (
 )
 
 func Setup(app *fiber.App) {
+	metrics.Init()
+
 	app.Use(recover.New())
 
 	app.Use(RequestID())
-	
+
+	app.Use(PrometheusMiddleware())
+
 	app.Use(SetupHelmet())
 
 	app.Use(SetupCors())

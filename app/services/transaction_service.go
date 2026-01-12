@@ -2,6 +2,7 @@ package services
 
 import (
 	"backend-path/app/dto"
+	"backend-path/app/metrics"
 	"backend-path/app/models"
 	"backend-path/app/repository"
 	"backend-path/app/transformer"
@@ -105,6 +106,14 @@ func (s *TransactionService) processTransaction(job workers.TransactionJob) work
 		s.invalidateCachesAfterTransaction(resultTx)
 	}
 
+    txType := job.Type.String()
+    
+    if err != nil {
+        metrics.TransactionsTotal.WithLabelValues(txType, "failed").Inc()
+    } else {
+        metrics.TransactionsTotal.WithLabelValues(txType, "success").Inc()
+        metrics.TransactionAmount.WithLabelValues(txType).Observe(job.Amount)
+    }
 
 	return workers.TransactionResult{
 		Transaction: resultTx,

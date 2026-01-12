@@ -2,15 +2,21 @@ package routes
 
 import (
 	"backend-path/app/controllers"
+	"backend-path/app/metrics"
 	"backend-path/app/middlewares"
 	"backend-path/app/models"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func Setup(app *fiber.App) {
 	apiRoute := app.Group("/api/v1", middlewares.JwtMiddleware)
 
+    app.Get("/metrics", adaptor.HTTPHandler(
+        promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}),
+    ))
 	auth := app.Group("/api/v1/auth", middlewares.SetupAuthRateLimiter())
 	authController := controllers.NewAuthController()
 	auth.Post("/register", authController.Register)

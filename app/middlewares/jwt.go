@@ -1,11 +1,14 @@
 package middlewares
 
 import (
+	"backend-path/app/metrics"
 	"backend-path/app/models"
 	"backend-path/utils"
 	"errors"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
@@ -21,6 +24,11 @@ type SkipperRoutesData struct {
 	Method  string
 	UrlPath string
 }
+
+var (
+	activeUserMap = make(map[string]time.Time)
+	activeUserMu sync.Mutex
+)
 
 func JwtMiddleware(ctx *fiber.Ctx) error {
 	// skip whitelist routes
@@ -54,6 +62,8 @@ func JwtMiddleware(ctx *fiber.Ctx) error {
 	ctx.Locals("user_auth", claims.Issuer)
 	ctx.Locals("user_role", claims.Role)
 
+	trackActiveUser(claims.Issuer)
+
 	if err != nil {
 		if ve, ok := err.(*jwt.ValidationError); ok {
 			if ve.Errors&jwt.ValidationErrorExpired != 0 {
@@ -83,4 +93,22 @@ func whiteListRoutes() []SkipperRoutesData {
 		{"POST", "/api/v1/auth/register"},
 		{"POST", "/api/v1/auth/login"},
 	}
+}
+
+func trackActiveUser(userID string) {
+	activeUserMu.Lock()
+	defer activeUserMu.Unlock()
+
+	now := time.Now()
+	ttl := 5 * time.Minute
+
+	for id, lastSeen := range activeUserMap {
+		if now.Sub(lastSeen) > ttl {
+			delete(activeUserMap, id)
+		}
+	}
+
+	activeUserMap[userID] = now
+
+	metrics.ActiveUsers.Set(float64(len(activeUserMap)))
 }
