@@ -61,10 +61,15 @@ func argsListener() {
 	homeDir, _ := os.UserHomeDir()
 	sqlMigrate := homeDir + "/go/bin/sql-migrate"
 
+	migrateEnv := os.Getenv("SQLMIGRATE_ENV")
+	if migrateEnv == "" {
+		migrateEnv = "development"
+	}
+
 	for _, arg := range os.Args {
 		if arg == "--rollback" {
 			utils.Logger.Info("✅ down all migration")
-			cmd := exec.Command(sqlMigrate, "down", "-limit=0")
+			cmd := exec.Command(sqlMigrate, "down", "-limit=0", "-env="+migrateEnv)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
@@ -72,7 +77,7 @@ func argsListener() {
 			}
 
 			utils.Logger.Info("✅ up all migration")
-			cmd = exec.Command(sqlMigrate, "up", "-limit=0")
+			cmd = exec.Command(sqlMigrate, "up", "-limit=0", "-env="+migrateEnv)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {

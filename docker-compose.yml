@@ -1,0 +1,88 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: development
+      APP_DEBUG: "true"
+      APP_PORT: 8080
+      DB_USERNAME: app
+      DB_PASSWORD: app
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: app_db
+      DB_MAX_IDLE_CONNS: 5
+      DB_MAX_OPEN_CONNS: 10
+      DB_MAX_CONN_LIFETIME: 1
+      DB_MAX_CONN_IDLE_TIME: 1
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USER: ""
+      REDIS_PASSWORD: ""
+      SQLMIGRATE_ENV: docker
+    depends_on:
+      - db
+      - redis
+    networks:
+      - app-net
+
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - app-net
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - app-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.docker.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - app-net
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - app-net
+
+volumes:
+  db_data:
+  redis_data:
+  grafana_data:
+
+networks:
+  app-net:
+    driver: bridge
