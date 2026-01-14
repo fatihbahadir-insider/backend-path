@@ -1,10 +1,13 @@
 package server
 
 import (
+	"backend-path/app/tracing"
 	"backend-path/utils"
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -52,6 +55,10 @@ func (s *Server) cleanup() {
 			utils.Logger.Info("Database connection closed")
 		}
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	tracing.ShutdownGlobal(ctx)
 
 	utils.Logger.Info("Server shutdown complete")
 }

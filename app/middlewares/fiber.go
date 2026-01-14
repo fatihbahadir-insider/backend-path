@@ -18,6 +18,10 @@ func Setup(app *fiber.App) {
 
 	app.Use(RequestID())
 
+	if os.Getenv("TRACING_ENABLED") == "true" {
+		app.Use(TracingMiddleware())
+	}
+
 	app.Use(PrometheusMiddleware())
 
 	app.Use(SetupHelmet())

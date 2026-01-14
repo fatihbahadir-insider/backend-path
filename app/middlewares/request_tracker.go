@@ -36,6 +36,13 @@ func RequestTracker() fiber.Handler {
 			zap.String("referer", string(c.Request().Header.Referer())),
 		}
 
+		if traceID, ok := c.Locals("trace_id").(string); ok && traceID != "" {
+			logFields = append(logFields, zap.String("trace_id", traceID))
+		}
+		if spanID, ok := c.Locals("span_id").(string); ok && spanID != "" {
+			logFields = append(logFields, zap.String("span_id", spanID))
+		}
+
 		if userID != "" {
 			logFields = append(logFields, zap.String("user_id", userID))
 		}

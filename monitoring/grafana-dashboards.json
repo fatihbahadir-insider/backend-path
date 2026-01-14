@@ -32,7 +32,7 @@
             },
             "targets": [
                 {
-                    "expr": "sum(rate(http_requests_total[5m]))",
+                    "expr": "sum(rate(app_http_requests_total[5m]))",
                     "legendFormat": "Requests/sec",
                     "refId": "A"
                 }
@@ -92,7 +92,7 @@
             },
             "targets": [
                 {
-                    "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+                    "expr": "histogram_quantile(0.95, sum(rate(app_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
                     "legendFormat": "p95 Latency",
                     "refId": "A"
                 }
@@ -226,7 +226,7 @@
             },
             "targets": [
                 {
-                    "expr": "sum(rate(http_requests_total[5m])) by (method, path)",
+                    "expr": "sum(rate(app_http_requests_total[5m])) by (method, path)",
                     "legendFormat": "{{method}} {{path}}",
                     "refId": "A"
                 }
@@ -266,7 +266,7 @@
             },
             "targets": [
                 {
-                    "expr": "sum(rate(http_requests_total[5m])) by (status)",
+                    "expr": "sum(rate(app_http_requests_total[5m])) by (status)",
                     "legendFormat": "{{status}}",
                     "refId": "A"
                 }
@@ -305,17 +305,17 @@
             },
             "targets": [
                 {
-                    "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+                    "expr": "histogram_quantile(0.50, sum(rate(app_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
                     "legendFormat": "p50",
                     "refId": "A"
                 },
                 {
-                    "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+                    "expr": "histogram_quantile(0.95, sum(rate(app_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
                     "legendFormat": "p95",
                     "refId": "B"
                 },
                 {
-                    "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+                    "expr": "histogram_quantile(0.99, sum(rate(app_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
                     "legendFormat": "p99",
                     "refId": "C"
                 }
@@ -508,7 +508,7 @@
             },
             "targets": [
                 {
-                    "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+                    "expr": "sum(rate(app_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(app_http_requests_total[5m])) * 100",
                     "legendFormat": "Error Rate %",
                     "refId": "A"
                 }

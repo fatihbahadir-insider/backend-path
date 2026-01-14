@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	once sync.Once
+	once     sync.Once
 	Registry *prometheus.Registry
 
 	HttpRequestsTotal     *prometheus.CounterVec
@@ -30,7 +30,7 @@ func Init() {
 
 		HttpRequestsTotal = prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "http_requests_total",
+				Name: "app_http_requests_total",
 				Help: "Total number of HTTP requests",
 			},
 			[]string{"method", "path", "status"},
@@ -38,7 +38,7 @@ func Init() {
 
 		HttpRequestDuration = prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    "http_request_duration_seconds",
+				Name:    "app_http_request_duration_seconds",
 				Help:    "Duration of HTTP requests in seconds",
 				Buckets: prometheus.DefBuckets,
 			},
