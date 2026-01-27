@@ -57,3 +57,14 @@ func (c *UserController) Delete(ctx *fiber.Ctx) error {
 
 	return c.userService.Delete(ctx, id)
 }
+
+func (c *UserController) GetMe(ctx *fiber.Ctx) error {
+	userIDStr := ctx.Locals("user_auth").(string)
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return utils.JsonErrorUnauthorized(ctx, errors.New("invalid user id"))
+	}
+
+	return c.userService.GetByID(ctx, userID)	
+}

@@ -26,6 +26,7 @@ func Setup(app *fiber.App) {
 	users := apiRoute.Group("/users")
 	userController := controllers.NewUserController()
 	users.Get("/", middlewares.Role(models.RoleAdmin, models.RoleMod), userController.GetAll)
+	users.Get("/me", middlewares.Role(models.RoleUser, models.RoleAdmin, models.RoleMod), userController.GetMe)
 	users.Get("/:id", middlewares.Role(models.RoleAdmin, models.RoleMod), userController.GetByID)
 	users.Put("/:id", middlewares.Role(models.RoleAdmin), userController.Update)
 	users.Delete("/:id", middlewares.Role(models.RoleAdmin), userController.Delete)
