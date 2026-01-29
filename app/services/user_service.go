@@ -23,6 +23,7 @@ type IUserService interface {
 	GetByID(ctx *fiber.Ctx, id uuid.UUID) error
 	Update(ctx *fiber.Ctx, id uuid.UUID, req dto.UpdateUserRequest) error
 	Delete(ctx *fiber.Ctx, id uuid.UUID) error
+	ResetUserListCache()
 }
 
 type UserService struct {
@@ -118,7 +119,7 @@ func (s *UserService) Update(ctx *fiber.Ctx, id uuid.UUID, req dto.UpdateUserReq
 	cacheKey := s.keyUserDetailCache(id.String())
 	s.setCache(cacheKey, userDetail)
 
-	s.resetUserListCache()
+	s.ResetUserListCache()
 
 	return utils.JsonSuccess(ctx, userDetail)
 }
@@ -141,7 +142,7 @@ func (s *UserService) Delete(ctx *fiber.Ctx, id uuid.UUID) error {
 	cacheKey := s.keyUserDetailCache(id.String())
 	s.redisStorage.Delete(cacheKey)
 
-	s.resetUserListCache()
+	s.ResetUserListCache()
 	
 	return utils.JsonSuccess(ctx, fiber.Map{"message": "user deleted"})
 }
@@ -204,13 +205,13 @@ func (s *UserService) setCache(key string, data interface{}) {
 	utils.Logger.Info("✅ SET CACHE USER LIST TO KEY " + key)
 }
 
-func (s *UserService) resetUserListCache() {
+func (s *UserService) ResetUserListCache() {
 	if s.redisStorage == nil {
 		return
 	}
 
 	commonPages := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50}
-	commonLimits := []int{10, 20, 25, 50, 100}
+	commonLimits := []int{5, 10, 20, 25, 50, 100}
 	
 	deletedCount := 0
 	for _, page := range commonPages {

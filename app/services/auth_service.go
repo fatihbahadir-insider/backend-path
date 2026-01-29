@@ -28,12 +28,14 @@ type IAuthService interface {
 type AuthService struct {
 	userRepo repository.IUserRepository
 	auditRepo repository.IAuditLogRepository
+	userService IUserService
 }
 
 func NewAuthService() *AuthService {
 	return &AuthService{
 		userRepo:  repository.NewUserRepository(),
 		auditRepo: repository.NewAuditRepository(),
+		userService: NewUserService(),
 	}
 }
 
@@ -107,6 +109,8 @@ func (s *AuthService) Register(ctx *fiber.Ctx, req dto.RegisterRequest) error {
 	if err := s.userRepo.Insert(user); err != nil {
 		return utils.JsonErrorInternal(ctx, err, "E_USER_CREATE")
 	}
+
+	s.userService.ResetUserListCache()
 
 	s.logAuth(ctx, &user.ID, models.ActionRegister, map[string]interface{}{
 		"email": user.Email,
