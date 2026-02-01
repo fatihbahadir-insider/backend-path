@@ -41,14 +41,15 @@ func (r *TransactionRepository) FindByUserID(userID uuid.UUID, limit, offset int
 	var total int64
 
 	query := DB.Model(&models.Transaction{}).Where("from_user_id = ? OR to_user_id = ?", userID, userID)
-
 	query.Count(&total)
-
-	err := query.Preload("FromUser").Preload("ToUser").
-			Order("created_at DESC").
-			Limit(limit).
-			Offset(offset).
-			Find(&transactions).Error
+	
+	err := DB.Model(&models.Transaction{}).
+		Where("from_user_id = ? OR to_user_id = ?", userID, userID).
+		Order("transactions.created_at DESC").
+		Preload("FromUser").Preload("ToUser").
+		Limit(limit).
+		Offset(offset).
+		Find(&transactions).Error
 
 	return transactions, total, err
 }

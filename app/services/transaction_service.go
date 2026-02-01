@@ -522,7 +522,7 @@ func InvalidateBalanceCacheForUser(userID uuid.UUID) {
 	configs.RedisStorage.Delete(currentKey)
 
 	commonPages := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	commonLimits := []int{10, 20, 25, 50, 100}
+	commonLimits := []int{5, 10, 20, 25, 50, 100}
 
 	deletedCount := 0
 	for _, page := range commonPages {
@@ -551,7 +551,7 @@ func (s *TransactionService) invalidateTransactionCache(transactionID uuid.UUID,
 
 	if userID != nil {
 		commonPages := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-		commonLimits := []int{10, 20, 25, 50, 100}
+		commonLimits := []int{5, 10, 20, 25, 50, 100}
 
 		deletedCount := 0
 		for _, page := range commonPages {
