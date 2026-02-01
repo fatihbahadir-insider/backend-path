@@ -491,6 +491,10 @@ func (s *TransactionService) invalidateCachesAfterTransaction(transaction *model
 		s.invalidateTransactionCache(transaction.ID, transaction.ToUserID)
 	}
 
+	if transaction.Type == models.TxTypeDeposit && transaction.ToUserID != nil {
+		s.invalidateTransactionCache(transaction.ID, transaction.ToUserID)
+	}
+	
 	switch transaction.Type {
 	case models.TxTypeDeposit:
 		if transaction.ToUserID != nil {
